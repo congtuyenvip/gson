@@ -33,13 +33,7 @@ import com.google.gson.internal.bind.TypeAdapters;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 
-import static com.google.gson.Gson.DEFAULT_COMPLEX_MAP_KEYS;
-import static com.google.gson.Gson.DEFAULT_ESCAPE_HTML;
-import static com.google.gson.Gson.DEFAULT_JSON_NON_EXECUTABLE;
-import static com.google.gson.Gson.DEFAULT_LENIENT;
-import static com.google.gson.Gson.DEFAULT_PRETTY_PRINT;
-import static com.google.gson.Gson.DEFAULT_SERIALIZE_NULLS;
-import static com.google.gson.Gson.DEFAULT_SPECIALIZE_FLOAT_VALUES;
+import static com.google.gson.Gson.*;
 
 /**
  * <p>Use this builder to construct a {@link Gson} instance when you need to set configuration
@@ -94,6 +88,7 @@ public final class GsonBuilder {
   private boolean prettyPrinting = DEFAULT_PRETTY_PRINT;
   private boolean generateNonExecutableJson = DEFAULT_JSON_NON_EXECUTABLE;
   private boolean lenient = DEFAULT_LENIENT;
+  private boolean deserializeArrayAsNullForObject = DEFAULT_DESERIALIZE_ARRAY_AS_NULL_FOR_OBJECT;
 
   /**
    * Creates a GsonBuilder instance that can be used to build Gson with various configuration
@@ -120,6 +115,7 @@ public final class GsonBuilder {
     this.escapeHtmlChars = gson.htmlSafe;
     this.prettyPrinting = gson.prettyPrinting;
     this.lenient = gson.lenient;
+    this.deserializeArrayAsNullForObject = gson.deserializeArrayAsNullForObject;
     this.serializeSpecialFloatingPointValues = gson.serializeSpecialFloatingPointValues;
     this.longSerializationPolicy = gson.longSerializationPolicy;
     this.datePattern = gson.datePattern;
@@ -401,6 +397,17 @@ public final class GsonBuilder {
   }
 
   /**
+   * By default, when field type is an object but input json string is an array. Then null value will be assigned to
+   * field. If disable, the java.lang.IllegalStateException: Expected BEGIN_OBJECT but was BEGIN_ARRAY will be thrown.
+   *
+   * @return a reference to this {@code GsonBuilder} object to fulfill the "Builder" pattern
+   */
+  public GsonBuilder disableDeserializeArrayAsNullForObject() {
+    deserializeArrayAsNullForObject = false;
+    return this;
+  }
+
+  /**
    * By default, Gson escapes HTML characters such as &lt; &gt; etc. Use this option to configure
    * Gson to pass-through HTML characters as is.
    *
@@ -596,7 +603,7 @@ public final class GsonBuilder {
 
     return new Gson(excluder, fieldNamingPolicy, instanceCreators,
         serializeNulls, complexMapKeySerialization,
-        generateNonExecutableJson, escapeHtmlChars, prettyPrinting, lenient,
+        generateNonExecutableJson, escapeHtmlChars, prettyPrinting, lenient, deserializeArrayAsNullForObject,
         serializeSpecialFloatingPointValues, longSerializationPolicy,
         datePattern, dateStyle, timeStyle,
         this.factories, this.hierarchyFactories, factories);

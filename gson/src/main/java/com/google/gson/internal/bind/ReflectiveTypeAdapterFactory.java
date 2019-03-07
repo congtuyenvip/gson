@@ -51,14 +51,16 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
   private final Excluder excluder;
   private final JsonAdapterAnnotationTypeAdapterFactory jsonAdapterFactory;
   private final ReflectionAccessor accessor = ReflectionAccessor.getInstance();
+  private final boolean deserializeArrayAsNullForObject;
 
   public ReflectiveTypeAdapterFactory(ConstructorConstructor constructorConstructor,
       FieldNamingStrategy fieldNamingPolicy, Excluder excluder,
-      JsonAdapterAnnotationTypeAdapterFactory jsonAdapterFactory) {
+      JsonAdapterAnnotationTypeAdapterFactory jsonAdapterFactory, boolean deserializeArrayAsNullForObject) {
     this.constructorConstructor = constructorConstructor;
     this.fieldNamingPolicy = fieldNamingPolicy;
     this.excluder = excluder;
     this.jsonAdapterFactory = jsonAdapterFactory;
+    this.deserializeArrayAsNullForObject = deserializeArrayAsNullForObject;
   }
 
   public boolean excludeField(Field f, boolean serialize) {
@@ -99,7 +101,7 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
     }
 
     ObjectConstructor<T> constructor = constructorConstructor.get(type);
-    return new Adapter<T>(constructor, getBoundFields(gson, type, raw));
+    return new Adapter<T>(constructor, getBoundFields(gson, type, raw), deserializeArrayAsNullForObject);
   }
 
   private ReflectiveTypeAdapterFactory.BoundField createBoundField(
@@ -197,10 +199,12 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
   public static final class Adapter<T> extends TypeAdapter<T> {
     private final ObjectConstructor<T> constructor;
     private final Map<String, BoundField> boundFields;
+    private final boolean deserializeArrayAsNullForObject;
 
-    Adapter(ObjectConstructor<T> constructor, Map<String, BoundField> boundFields) {
+    Adapter(ObjectConstructor<T> constructor, Map<String, BoundField> boundFields, boolean deserializeArrayAsNullForObject) {
       this.constructor = constructor;
       this.boundFields = boundFields;
+      this.deserializeArrayAsNullForObject = deserializeArrayAsNullForObject;
     }
 
     @Override public T read(JsonReader in) throws IOException {
@@ -223,7 +227,13 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
           }
         }
       } catch (IllegalStateException e) {
-        throw new JsonSyntaxException(e);
+        if(!deserializeArrayAsNullForObject) {
+          throw new JsonSyntaxException(e);
+        }
+        else {
+          in.skipValue();
+          return null;
+        }
       } catch (IllegalAccessException e) {
         throw new AssertionError(e);
       }

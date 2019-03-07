@@ -17,6 +17,7 @@
 package com.google.gson.internal.bind;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.internal.$Gson$Types;
@@ -35,9 +36,11 @@ import java.util.Collection;
  */
 public final class CollectionTypeAdapterFactory implements TypeAdapterFactory {
   private final ConstructorConstructor constructorConstructor;
+  private final boolean deserializeArrayAsNullForObject;
 
-  public CollectionTypeAdapterFactory(ConstructorConstructor constructorConstructor) {
+  public CollectionTypeAdapterFactory(ConstructorConstructor constructorConstructor, boolean deserializeArrayAsNullForObject) {
     this.constructorConstructor = constructorConstructor;
+    this.deserializeArrayAsNullForObject = deserializeArrayAsNullForObject;
   }
 
   @Override
@@ -54,20 +57,23 @@ public final class CollectionTypeAdapterFactory implements TypeAdapterFactory {
     ObjectConstructor<T> constructor = constructorConstructor.get(typeToken);
 
     @SuppressWarnings({"unchecked", "rawtypes"}) // create() doesn't define a type parameter
-    TypeAdapter<T> result = new Adapter(gson, elementType, elementTypeAdapter, constructor);
+    TypeAdapter<T> result = new Adapter(gson, elementType, elementTypeAdapter, constructor, deserializeArrayAsNullForObject);
     return result;
   }
 
   private static final class Adapter<E> extends TypeAdapter<Collection<E>> {
     private final TypeAdapter<E> elementTypeAdapter;
     private final ObjectConstructor<? extends Collection<E>> constructor;
+    private final boolean deserializeArrayAsNullForObject;
 
     public Adapter(Gson context, Type elementType,
         TypeAdapter<E> elementTypeAdapter,
-        ObjectConstructor<? extends Collection<E>> constructor) {
+        ObjectConstructor<? extends Collection<E>> constructor,
+                   boolean deserializeArrayAsNullForObject) {
       this.elementTypeAdapter =
           new TypeAdapterRuntimeTypeWrapper<E>(context, elementTypeAdapter, elementType);
       this.constructor = constructor;
+      this.deserializeArrayAsNullForObject = deserializeArrayAsNullForObject;
     }
 
     @Override public Collection<E> read(JsonReader in) throws IOException {
@@ -77,10 +83,20 @@ public final class CollectionTypeAdapterFactory implements TypeAdapterFactory {
       }
 
       Collection<E> collection = constructor.construct();
-      in.beginArray();
-      while (in.hasNext()) {
-        E instance = elementTypeAdapter.read(in);
-        collection.add(instance);
+      try {
+        in.beginArray();
+        while (in.hasNext()) {
+          E instance = elementTypeAdapter.read(in);
+          collection.add(instance);
+        }
+      } catch (IllegalStateException e) {
+        if(!deserializeArrayAsNullForObject) {
+          throw new JsonSyntaxException(e);
+        }
+        else {
+          in.skipValue();
+          return null;
+        }
       }
       in.endArray();
       return collection;
